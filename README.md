@@ -211,27 +211,54 @@ Copy the password and paste in the url, install all suggested features and you w
 Jenkinsfile
 
 pipeline {
-    agent any
-
+    agent any 
+    environment {
+        //once you sign up for Docker hub, use that user_id here
+        registry = "iamsks/myapp"
+        //- update your credentials ID after creating credentials for connecting to Docker Hub
+        registryCredential = 'dockerhub_id'
+        dockerImage = ''
+    }
+    
     stages {
-        stage('git clone') {
+        stage('Cloning Git') {
             steps {
                checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/sks-sys/pymongo.git']]])
+       
             }
         }
-        stage('build') {
-            steps {
-                sh 'docker build . -t pymongo'
-            }
+    
+    // Building Docker images
+    stage('Building image') {
+      steps{
+        script {
+            img = registry + ":${env.BUILD_ID}"
+            println ("${img}")
+            dockerImage = docker.build("${img}")
         }
-        stage('publish') {
-            steps {
-               echo 'tested successfully!!'
-            }
+      }
+    }
+    
+     stage('test') {
+        steps {
+         sh "docker run -d --name ${JOB_NAME} -p 5000:5000 ${img}"
         }
     }
+    
+    stage('publish') {
+        steps {
+            script {
+                docker.withRegistry('https://registry.hub.docker.com', registryCredential) {
+                    dockerImage.push()
+                    
+                }
+                
+            }
+         
+        }
+    }
+    }
 }
-
 
 
 
